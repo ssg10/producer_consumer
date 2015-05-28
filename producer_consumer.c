@@ -87,6 +87,21 @@ static int thread_consumer_entry(void* thread_data)
 	while(!kthread_should_stop()){
 		PINFO("Inside the spinning while loop in thread\n");
 
+		/*RACE CONDITION SOLUTION. Move set current state to here.*/
+		/*How this solves it? We have changed our current state to TASK_INTERRUPTIBLE,
+		before we test the list_empty condition. So, what has changed?
+		The change is that whenever a wake_up_process is called
+		for a process whose state is TASK_INTERRUPTIBLE or TASK_UNINTERRUPTIBLE,
+		and the process has not yet called schedule(),
+		the state of the process is changed back to TASK_RUNNING.
+
+		Thus, even if a wake-up is delivered by process producer
+		at any point after the check for list_empty is made, the state of consumer automatically
+		is changed to TASK_RUNNING. Hence, the call to schedule() does not put
+		process consumer to sleep; it merely schedules it out for a while.
+		Thus, the wake-up no longer is lost. */
+
+		set_current_state(TASK_INTERRUPTIBLE);
 		spin_lock(&list_lock);
 
 		if(list_empty(&mytask_list.list)) {
@@ -96,12 +111,17 @@ static int thread_consumer_entry(void* thread_data)
 			 * to interruptible below, then the wake up is lost. Consumer will sleep.
 			 * (Of course, in this example, producer will wake up consumer again every
 			 * 30 secs. Then, consumer will process the tasks, eventually. - however,
-			 * it has to wait 30 secs. Or never, if the producer is designed not to wake up \
+			 * it has to wait 30 secs. Or never, if the producer is designed not to wake up
 			 * consumer at all.)
-			 * */
-			set_current_state(TASK_INTERRUPTIBLE);
+			 *
+			 * In this timeslice, producer executes all its instructions.
+			 * Thus, it performs a wake-up on consumer, which has not yet gone to sleep.
+			 * Now, consumer, wrongly assuming that it safely has performed the check for list_empty,
+			 * sets the state to TASK_INTERRUPTIBLE and goes to sleep. */
+
+			/*set_current_state(TASK_INTERRUPTIBLE);*/
 			schedule();
-			spin_lock(&list_lock);
+			//spin_lock(&list_lock);
 		}
 		/* List not empty. Pick up the task and process it */
 		else {
@@ -120,12 +140,13 @@ static int thread_consumer_entry(void* thread_data)
 				tmp_task_list = list_entry(pos, struct task_list, list);
 				PINFO("Traversing list and found: %s\n", tmp_task_list->task_name);
 			}
+			spin_unlock(&list_lock);
+
+			//set_current_state(TASK_INTERRUPTIBLE);
+			schedule();
 		}
 
-		spin_unlock(&list_lock);
-
-		set_current_state(TASK_INTERRUPTIBLE);
-		schedule();
+		PINFO("Fall off list_empty check\n");
 
 		/* See note at the bottom. Here, a wake_up_process from producer will change consumer
 		 * thread back to TASK_RUNNING. Back to the top of while loop.
