@@ -121,7 +121,6 @@ static int thread_consumer_entry(void* thread_data)
 
 			/*set_current_state(TASK_INTERRUPTIBLE);*/
 			schedule();
-			//spin_lock(&list_lock);
 		}
 		/* List not empty. Pick up the task and process it */
 		else {
@@ -142,7 +141,7 @@ static int thread_consumer_entry(void* thread_data)
 			}
 			spin_unlock(&list_lock);
 
-			//set_current_state(TASK_INTERRUPTIBLE);
+			//set_current_state(TASK_INTERRUPTIBLE);  // no need to redo set state here
 			schedule();
 		}
 
@@ -235,4 +234,3 @@ is changed back to TASK_RUNNING.
 //May 27 18:25:49 ubuntu kernel: [627674.081194] thread_consumer_entry:Picked up task = cleanroom
 //May 27 18:25:49 ubuntu kernel: [627674.081197] thread_consumer_entry:Picked up task = washdish
 //May 27 18:25:49 ubuntu kernel: [627674.081200] thread_consumer_entry:Picked up task = buyfood
-
