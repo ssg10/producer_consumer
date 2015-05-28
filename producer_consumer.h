@@ -9,3 +9,6 @@
 #include <linux/kernel.h>
 #include <linux/kthread.h>  // for threads
 #include <linux/debugfs.h>
+#include <linux/vmalloc.h>
+#include <linux/slab.h>
+#include <linux/string.h>
